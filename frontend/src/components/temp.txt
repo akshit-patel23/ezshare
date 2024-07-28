@@ -1,0 +1,9 @@
+<input type="file" onChange={handleFileChange} />
+      <button onClick={handleShare} disabled={!file}>Share File</button>
+      {shareLink && <p><a href={shareLink}>Share this link</a></p>}
+      {file && (
+        <p>File size: {fileSize} bytes</p>
+      )}
+      {file && fileSentSize > 0 && (
+        <p>Sent: {fileSentSize} bytes</p>
+      )}
