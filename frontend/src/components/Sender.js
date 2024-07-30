@@ -102,7 +102,7 @@ function Sender() {
     localConnection.createOffer().then((offer) => {
       return localConnection.setLocalDescription(offer);
     }).then(() => {
-      const link = `http://localhost:3000/receiver?id=${encodeURIComponent(localConnection.localDescription.sdp)}`;
+      const link = `https://ezshare-jctz.vercel.app/receiver?id=${encodeURIComponent(localConnection.localDescription.sdp)}`;
       setShareLink(link);
       console.log(`Share link: ${link}`);
     }).catch(console.error);
