@@ -139,7 +139,8 @@ function Sender() {
               console.log('File transmission complete');
             }
           } else {
-            setTimeout(bufferFullCheck, 100); // Retry after delay
+            setTimeout(bufferFullCheck, 100);
+            
           }
         };
 
