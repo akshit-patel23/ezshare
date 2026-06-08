@@ -6,15 +6,22 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
+
 const io = socketIO(server, {
   cors: {
     origin: "https://ezshare-alpha.vercel.app",
     methods: ["GET", "POST"]
   }
 });
+
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: "https://ezshare-alpha.vercel.app",
+  methods: ["GET", "POST"],
+  credentials: true
+}));
+
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
 io.on('connection', (socket) => {

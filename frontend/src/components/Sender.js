@@ -2,7 +2,7 @@ import React, { useState, useEffect,useRef } from 'react';
 import io from 'socket.io-client';
 import '../App.css';
 import{QRCodeSVG} from 'qrcode.react';
-const socket = io('http://localhost:5000');
+const socket = io('https://ezshare.onrender.com');
 
 function Sender() {
   const [file, setFile] = useState(null);
