@@ -8,7 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
   cors: {
-    origin: "https://ezshare-alpha.vercel.app/",
+    origin: "https://ezshare-alpha.vercel.app",
     methods: ["GET", "POST"]
   }
 });
