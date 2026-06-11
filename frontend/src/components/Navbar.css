@@ -1,14 +1,20 @@
-.nav{
-   /* background-color: #3e4a61; */
-   /* background-color:#2a2438; */
-   background-color: #082032;
-   height:8vh;
+.nav {
+  background-color: #0a1628;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  height: 8vh;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  box-sizing: border-box;
 }
-.logo{
-   text-align: left;
-}
-.logo h1{
-   margin:0;
-   color: #dbd8e3;
-   margin-inline-start: 1%;
+
+.logo h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #EC971F, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
