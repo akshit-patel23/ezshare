@@ -113,11 +113,21 @@ function Sender() {
       .catch(console.error);
 
     socket.on('answer', (data) => {
-      localConnection.setRemoteDescription(new RTCSessionDescription(data.answer)).catch(console.error);
+      localConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
+        .then(() => {
+          pendingCandidates.forEach(c => localConnection.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
+          pendingCandidates = [];
+        })
+        .catch(console.error);
     });
 
+    let pendingCandidates = [];
     socket.on('candidate', (data) => {
-      localConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
+      if (localConnection.remoteDescription) {
+        localConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
+      } else {
+        pendingCandidates.push(data.candidate);
+      }
     });
   };
 

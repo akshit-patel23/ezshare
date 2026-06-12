@@ -67,16 +67,18 @@ function Receiver() {
     // Server sends back the offer once we join
     socket.on('offer', ({ offer }) => {
       remoteConnection.setRemoteDescription(new RTCSessionDescription(offer))
-        .then(() => remoteConnection.createAnswer())
+        .then(() => {
+          pendingCandidates.forEach(c => remoteConnection.addIceCandidate(new RTCIceCandidate(c)).catch(console.error));
+          pendingCandidates = [];
+          return remoteConnection.createAnswer();
+        })
         .then(answer => remoteConnection.setLocalDescription(answer))
         .then(() => {
-          // Wait for ICE gathering to complete before sending answer
           remoteConnection.onicegatheringstatechange = () => {
             if (remoteConnection.iceGatheringState === 'complete') {
               socket.emit('answer', { roomId, answer: remoteConnection.localDescription });
             }
           };
-          // In case gathering is already complete
           if (remoteConnection.iceGatheringState === 'complete') {
             socket.emit('answer', { roomId, answer: remoteConnection.localDescription });
           }
@@ -85,8 +87,14 @@ function Receiver() {
     });
 
     socket.on('candidate', (data) => {
-      remoteConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
+      if (remoteConnection.remoteDescription) {
+        remoteConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
+      } else {
+        pendingCandidates.push(data.candidate);
+      }
     });
+
+    let pendingCandidates = [];
 
     socket.on('error', (data) => setError(data.message));
 
