@@ -39,21 +39,33 @@ function Receiver() {
 
     remoteConnection.ondatachannel = (event) => {
       const receiveChannel = event.channel;
+      receiveChannel.binaryType = 'arraybuffer';
       const chunks = [];
       let metadata = null;
       let received = 0;
+      let expectedSize = 0;
 
       receiveChannel.onmessage = (event) => {
         if (typeof event.data === 'string') {
           metadata = JSON.parse(event.data);
+          expectedSize = metadata.fileSize;
           setFileInfo(metadata);
-        } else if (event.data.byteLength === 0) {
-          const blob = new Blob(chunks, { type: metadata.fileType });
-          setDownloadUrl(URL.createObjectURL(blob));
         } else {
-          chunks.push(event.data);
-          received += event.data.byteLength;
-          setReceivedSize(received);
+          const buf = event.data;
+          if (buf.byteLength === 0) {
+            // end-of-file signal
+            const blob = new Blob(chunks, { type: metadata.fileType });
+            setDownloadUrl(URL.createObjectURL(blob));
+          } else {
+            chunks.push(buf);
+            received += buf.byteLength;
+            setReceivedSize(received);
+            // also assemble if we have received everything
+            if (received >= expectedSize && expectedSize > 0) {
+              const blob = new Blob(chunks, { type: metadata.fileType });
+              setDownloadUrl(URL.createObjectURL(blob));
+            }
+          }
         }
       };
     };

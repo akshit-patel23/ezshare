@@ -158,12 +158,12 @@ function Sender() {
             setFileSentSize(offset);
 
             if (offset < file.size) {
-              setTimeout(() => readSlice(offset), 10);
+              setTimeout(() => readSlice(offset), 100);
             } else {
               sendChannel.send(new ArrayBuffer(0));
             }
           } else {
-            setTimeout(bufferFullCheck, 10);
+            setTimeout(bufferFullCheck, 100);
           }
         };
 
