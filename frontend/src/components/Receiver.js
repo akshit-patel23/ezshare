@@ -13,18 +13,11 @@ function Receiver() {
 
   const ICE_SERVERS = {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp',
-          'turns:openrelay.metered.ca:443'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
+      { urls: 'stun:stun.relay.metered.ca:80' },
+      { urls: 'turn:global.relay.metered.ca:80', username: '81630ac0a1daa10efff069b5', credential: 'u5Sd/pEnil/4niuv' },
+      { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '81630ac0a1daa10efff069b5', credential: 'u5Sd/pEnil/4niuv' },
+      { urls: 'turn:global.relay.metered.ca:443', username: '81630ac0a1daa10efff069b5', credential: 'u5Sd/pEnil/4niuv' },
+      { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '81630ac0a1daa10efff069b5', credential: 'u5Sd/pEnil/4niuv' }
     ]
   };
 
