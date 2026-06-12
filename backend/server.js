@@ -41,7 +41,21 @@ io.on('connection', (socket) => {
   socket.on('join', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) {
-      socket.emit('error', { message: 'Room not found' });
+      // Offer not registered yet — retry up to 5s
+      let attempts = 0;
+      const retry = setInterval(() => {
+        attempts++;
+        const r = rooms[roomId];
+        if (r) {
+          clearInterval(retry);
+          socket.join(roomId);
+          socket.emit('offer', { offer: r.offer });
+          console.log(`Receiver joined room after retry: ${roomId}`);
+        } else if (attempts >= 10) {
+          clearInterval(retry);
+          socket.emit('error', { message: 'Room not found or sender disconnected.' });
+        }
+      }, 500);
       return;
     }
     socket.join(roomId);

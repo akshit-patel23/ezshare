@@ -103,19 +103,32 @@ function Sender() {
       console.log('[Sender] ICE state:', localConnection.iceConnectionState);
     };
 
-    // Wait for full ICE gathering before registering
+    localConnection.createOffer()
+      .then(offer => localConnection.setLocalDescription(offer))
+      .then(() => {
+        // Show QR immediately — roomId is all the receiver needs
+        const link = `https://ezshare-alpha.vercel.app/receiver?id=${roomId}`;
+        setShareLink(link);
+      })
+      .catch(console.error);
+
+    // Register offer once ICE gathering completes (or after 3s fallback)
+    let registered = false;
+    const registerOnce = () => {
+      if (registered) return;
+      registered = true;
+      console.log('[Sender] Registering offer, ICE state:', localConnection.iceGatheringState);
+      socket.emit('register', { roomId, offer: localConnection.localDescription });
+    };
+
+    const gatherTimeout = setTimeout(registerOnce, 3000);
     localConnection.onicegatheringstatechange = () => {
       console.log('[Sender] ICE gathering:', localConnection.iceGatheringState);
       if (localConnection.iceGatheringState === 'complete') {
-        socket.emit('register', { roomId, offer: localConnection.localDescription });
-        const link = `https://ezshare-alpha.vercel.app/receiver?id=${roomId}`;
-        setShareLink(link);
+        clearTimeout(gatherTimeout);
+        registerOnce();
       }
     };
-
-    localConnection.createOffer()
-      .then(offer => localConnection.setLocalDescription(offer))
-      .catch(console.error);
 
     socket.on('answer', (data) => {
       localConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
