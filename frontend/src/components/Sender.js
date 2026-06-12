@@ -143,54 +143,43 @@ function Sender() {
   };
 
   const sendChunks = (sendChannel, file) => {
+    const CHUNK_SIZE = 65536; // 64KB chunks
+    const HIGH_WATERMARK = 1048576; // 1MB - pause if buffer exceeds this
+    sendChannel.bufferedAmountLowThreshold = 262144; // 256KB - resume when buffer drops below this
+
     let offset = 0;
+    let paused = false;
 
-    const readSlice = (offset) => {
-      const chunkSize = getDynamicChunkSize(sendChannel.bufferedAmount, file.size - offset);
-      const slice = file.slice(offset, offset + chunkSize);
-      const reader = new FileReader();
-
-      reader.onload = (event) => {
-        const bufferFullCheck = () => {
-          if (sendChannel.bufferedAmount <= sendChannel.bufferedAmountLowThreshold) {
-            sendChannel.send(event.target.result);
-            offset += event.target.result.byteLength;
-            setFileSentSize(offset);
-            console.log(`Sent ${offset} bytes`);
-
-            if (offset < file.size) {
-              setTimeout(() => readSlice(offset), 100); // Delay between chunks
-            } else {
-              sendChannel.send(new ArrayBuffer(0)); // Indicate end of file
-              console.log('File transmission complete');
-            }
-          } else {
-            setTimeout(bufferFullCheck, 100);
-
+    const sendNext = () => {
+      while (offset < file.size) {
+        if (sendChannel.bufferedAmount >= HIGH_WATERMARK) {
+          paused = true;
+          return; // wait for bufferedamountlow event
+        }
+        const slice = file.slice(offset, offset + CHUNK_SIZE);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          sendChannel.send(e.target.result);
+          offset += e.target.result.byteLength;
+          setFileSentSize(offset);
+          if (offset >= file.size) {
+            sendChannel.send(new ArrayBuffer(0));
           }
         };
-
-        bufferFullCheck();
-      };
-
-      reader.readAsArrayBuffer(slice);
+        reader.readAsArrayBuffer(slice);
+        offset += CHUNK_SIZE; // increment optimistically to avoid re-reading
+        if (offset > file.size) offset = file.size;
+      }
     };
 
-    readSlice(offset);
-  };
+    sendChannel.onbufferedamountlow = () => {
+      if (paused) {
+        paused = false;
+        sendNext();
+      }
+    };
 
-  const getDynamicChunkSize = (bufferedAmount, remainingSize) => {
-    const maxChunkSize = 262144; // Maximum chunk size (256KB)
-    const minChunkSize = 16384;  // Minimum chunk size (16KB)
-    const optimalBufferedAmount = 512000; // Optimal buffered amount (500KB)
-
-    if (bufferedAmount < optimalBufferedAmount / 2) {
-      return Math.min(maxChunkSize, remainingSize);
-    } else if (bufferedAmount < optimalBufferedAmount) {
-      return Math.min(maxChunkSize / 2, remainingSize);
-    } else {
-      return Math.min(minChunkSize, remainingSize);
-    }
+    sendNext();
   };
 
   const progressPct = fileSize > 0 ? Math.round((fileSentSize / fileSize) * 100) : 0;
