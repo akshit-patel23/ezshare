@@ -24,23 +24,48 @@ app.use(cors({
 
 app.use(express.static(path.join(__dirname, '../frontend/build')));
 
+// room ID -> sender socket ID
+const rooms = {};
+
 io.on('connection', (socket) => {
-  console.log('A user connected');
+  console.log('A user connected:', socket.id);
 
-  socket.on('offer', (data) => {
-    socket.broadcast.emit('offer', data);
+  // Sender registers a room with its SDP offer
+  socket.on('register', ({ roomId, offer }) => {
+    rooms[roomId] = { offer, senderSocket: socket.id };
+    socket.join(roomId);
+    console.log(`Room registered: ${roomId}`);
   });
 
-  socket.on('answer', (data) => {
-    socket.broadcast.emit('answer', data);
+  // Receiver joins a room and requests the offer
+  socket.on('join', ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+    socket.join(roomId);
+    socket.emit('offer', { offer: room.offer });
+    console.log(`Receiver joined room: ${roomId}`);
   });
 
-  socket.on('candidate', (data) => {
-    socket.broadcast.emit('candidate', data);
+  socket.on('answer', ({ roomId, answer }) => {
+    socket.to(roomId).emit('answer', { answer });
+  });
+
+  socket.on('candidate', ({ roomId, candidate }) => {
+    socket.to(roomId).emit('candidate', { candidate });
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected');
+    // Clean up rooms owned by this socket
+    for (const [roomId, room] of Object.entries(rooms)) {
+      if (room.senderSocket === socket.id) {
+        delete rooms[roomId];
+        console.log(`Room cleaned up: ${roomId}`);
+      }
+    }
+    console.log('User disconnected:', socket.id);
   });
 });
 

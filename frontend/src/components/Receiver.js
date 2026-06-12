@@ -6,15 +6,15 @@ function Receiver() {
   const [fileInfo, setFileInfo] = useState({});
   const [downloadUrl, setDownloadUrl] = useState('');
   const [receivedSize, setReceivedSize] = useState(0);
+  const [error, setError] = useState('');
 
   const params = new URLSearchParams(window.location.search);
-  const offer = decodeURIComponent(params.get('id'));
+  const roomId = params.get('id');
 
   useEffect(() => {
-    const socket = io('https://ezshare.onrender.com', {
-      transports: ['websocket']
-    });
+    if (!roomId) { setError('Invalid link — no room ID found.'); return; }
 
+    const socket = io('https://ezshare.onrender.com', { transports: ['websocket'] });
     const remoteConnection = new RTCPeerConnection();
 
     remoteConnection.ondatachannel = (event) => {
@@ -28,9 +28,8 @@ function Receiver() {
           metadata = JSON.parse(event.data);
           setFileInfo(metadata);
         } else if (event.data.byteLength === 0) {
-          const receivedBlob = new Blob(chunks, { type: metadata.fileType });
-          const url = URL.createObjectURL(receivedBlob);
-          setDownloadUrl(url);
+          const blob = new Blob(chunks, { type: metadata.fileType });
+          setDownloadUrl(URL.createObjectURL(blob));
         } else {
           chunks.push(event.data);
           received += event.data.byteLength;
@@ -40,27 +39,28 @@ function Receiver() {
     };
 
     remoteConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('candidate', { candidate: event.candidate });
-      }
+      if (event.candidate) socket.emit('candidate', { roomId, candidate: event.candidate });
     };
 
-    remoteConnection.setRemoteDescription(new RTCSessionDescription({
-      type: 'offer',
-      sdp: offer
-    }))
-    .then(() => remoteConnection.createAnswer())
-    .then(answer => remoteConnection.setLocalDescription(answer))
-    .then(() => {
-      socket.emit('answer', { answer: remoteConnection.localDescription });
+    // Server sends back the offer once we join
+    socket.on('offer', ({ offer }) => {
+      remoteConnection.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(() => remoteConnection.createAnswer())
+        .then(answer => remoteConnection.setLocalDescription(answer))
+        .then(() => socket.emit('answer', { roomId, answer: remoteConnection.localDescription }))
+        .catch(console.error);
     });
 
     socket.on('candidate', (data) => {
-      remoteConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      remoteConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(console.error);
     });
 
+    socket.on('error', (data) => setError(data.message));
+
+    socket.on('connect', () => socket.emit('join', { roomId }));
+
     return () => { socket.disconnect(); };
-  }, [offer]);
+  }, [roomId]);
 
   const handleDownload = () => {
     const a = document.createElement('a');
@@ -81,7 +81,19 @@ function Receiver() {
       <div className="child1">
         <div className="receiver-card">
 
-          {!fileInfo.fileName && !downloadUrl && (
+          {error && (
+            <>
+              <div className="receiver-icon receiver-icon--done" style={{background:'rgba(239,68,68,0.15)', color:'#ef4444'}}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+                </svg>
+              </div>
+              <h2 className="receiver-title">Something went wrong</h2>
+              <p className="receiver-sub">{error}</p>
+            </>
+          )}
+
+          {!error && !fileInfo.fileName && !downloadUrl && (
             <>
               <div className="receiver-icon receiver-icon--waiting">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -97,8 +109,7 @@ function Receiver() {
             <>
               <div className="receiver-icon receiver-icon--receiving">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M12 3v13M7 11l5 5 5-5"/>
-                  <path d="M5 20h14"/>
+                  <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 20h14"/>
                 </svg>
               </div>
               <h2 className="receiver-title">Receiving file</h2>
@@ -123,8 +134,7 @@ function Receiver() {
               <p className="receiver-sub">{fmtSize(fileInfo.fileSize)}</p>
               <button className="receiver-btn" onClick={handleDownload}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 3v13M7 11l5 5 5-5"/>
-                  <path d="M5 20h14"/>
+                  <path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 20h14"/>
                 </svg>
                 Download {fileInfo.fileName}
               </button>
@@ -149,8 +159,7 @@ function Receiver() {
           <div className="feat">
             <div className="icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 8v4l3 3"/>
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
               </svg>
             </div>
             <div className="text">Files are delivered in real time, peer-to-peer</div>

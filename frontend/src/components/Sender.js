@@ -65,47 +65,34 @@ function Sender() {
     fileinputRef.current.click();
   };
   const createConnection = () => {
+    const roomId = Math.random().toString(36).slice(2, 8); // e.g. "a3f9kz"
     const localConnection = new RTCPeerConnection();
 
     localConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        socket.emit('candidate', { candidate: event.candidate });
+        socket.emit('candidate', { roomId, candidate: event.candidate });
       }
     };
 
-    const dataChannelOptions = {
-      ordered: true, // Guarantee order
-      maxRetransmits: 0, // Don't retransmit
-    };
-
-    const sendChannel = localConnection.createDataChannel('sendDataChannel', dataChannelOptions);
+    const sendChannel = localConnection.createDataChannel('sendDataChannel', { ordered: true, maxRetransmits: 0 });
     setSendChannel(sendChannel);
 
     sendChannel.onopen = () => {
-      console.log('Data channel is open');
-
-      const metadata = {
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size
-      };
+      const metadata = { fileName: file.name, fileType: file.type, fileSize: file.size };
       sendChannel.send(JSON.stringify(metadata));
-      console.log('File metadata sent:', metadata);
-
       sendChunks(sendChannel, file);
     };
 
-    sendChannel.onclose = () => {
-      console.log('Data channel is closed');
-    };
+    sendChannel.onclose = () => console.log('Data channel closed');
 
-    localConnection.createOffer().then((offer) => {
-      return localConnection.setLocalDescription(offer);
-    }).then(() => {
-      const link = `https://ezshare-alpha.vercel.app/receiver?id=${encodeURIComponent(localConnection.localDescription.sdp)}`;
-      setShareLink(link);
-      console.log(`Share link: ${link}`);
-    }).catch(console.error);
+    localConnection.createOffer()
+      .then(offer => localConnection.setLocalDescription(offer))
+      .then(() => {
+        socket.emit('register', { roomId, offer: localConnection.localDescription });
+        const link = `https://ezshare-alpha.vercel.app/receiver?id=${roomId}`;
+        setShareLink(link);
+      })
+      .catch(console.error);
 
     socket.on('answer', (data) => {
       localConnection.setRemoteDescription(new RTCSessionDescription(data.answer)).catch(console.error);
