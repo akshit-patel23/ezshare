@@ -15,7 +15,9 @@ function Receiver() {
     if (!roomId) { setError('Invalid link — no room ID found.'); return; }
 
     const socket = io('https://ezshare.onrender.com', { transports: ['websocket'] });
-    const remoteConnection = new RTCPeerConnection();
+    const remoteConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
 
     remoteConnection.ondatachannel = (event) => {
       const receiveChannel = event.channel;
@@ -57,7 +59,13 @@ function Receiver() {
 
     socket.on('error', (data) => setError(data.message));
 
-    socket.on('connect', () => socket.emit('join', { roomId }));
+    // Emit join only after socket is confirmed connected
+    const doJoin = () => socket.emit('join', { roomId });
+    if (socket.connected) {
+      doJoin();
+    } else {
+      socket.on('connect', doJoin);
+    }
 
     return () => { socket.disconnect(); };
   }, [roomId]);

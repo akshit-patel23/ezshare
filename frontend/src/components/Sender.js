@@ -65,14 +65,10 @@ function Sender() {
     fileinputRef.current.click();
   };
   const createConnection = () => {
-    const roomId = Math.random().toString(36).slice(2, 8); // e.g. "a3f9kz"
-    const localConnection = new RTCPeerConnection();
-
-    localConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('candidate', { roomId, candidate: event.candidate });
-      }
-    };
+    const roomId = Math.random().toString(36).slice(2, 8);
+    const localConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
 
     const sendChannel = localConnection.createDataChannel('sendDataChannel', { ordered: true, maxRetransmits: 0 });
     setSendChannel(sendChannel);
@@ -85,13 +81,17 @@ function Sender() {
 
     sendChannel.onclose = () => console.log('Data channel closed');
 
-    localConnection.createOffer()
-      .then(offer => localConnection.setLocalDescription(offer))
-      .then(() => {
+    // Wait for full ICE gathering before registering — ensures candidates are in the offer
+    localConnection.onicegatheringstatechange = () => {
+      if (localConnection.iceGatheringState === 'complete') {
         socket.emit('register', { roomId, offer: localConnection.localDescription });
         const link = `https://ezshare-alpha.vercel.app/receiver?id=${roomId}`;
         setShareLink(link);
-      })
+      }
+    };
+
+    localConnection.createOffer()
+      .then(offer => localConnection.setLocalDescription(offer))
       .catch(console.error);
 
     socket.on('answer', (data) => {
