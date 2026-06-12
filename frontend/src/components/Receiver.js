@@ -11,13 +11,33 @@ function Receiver() {
   const params = new URLSearchParams(window.location.search);
   const roomId = params.get('id');
 
+  const ICE_SERVERS = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      {
+        urls: 'turn:relay1.expressturn.com:3478',
+        username: 'efNOBGLHAGCTEFMV4B',
+        credential: 'aDAWRmsoIkGzOPsX'
+      }
+    ]
+  };
+
   useEffect(() => {
     if (!roomId) { setError('Invalid link — no room ID found.'); return; }
 
     const socket = io('https://ezshare.onrender.com', { transports: ['websocket'] });
-    const remoteConnection = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
+    const remoteConnection = new RTCPeerConnection(ICE_SERVERS);
+
+    remoteConnection.onconnectionstatechange = () => {
+      console.log('[Receiver] Connection state:', remoteConnection.connectionState);
+    };
+    remoteConnection.oniceconnectionstatechange = () => {
+      console.log('[Receiver] ICE state:', remoteConnection.iceConnectionState);
+    };
+    remoteConnection.onicegatheringstatechange = () => {
+      console.log('[Receiver] ICE gathering:', remoteConnection.iceGatheringState);
+    };
 
     remoteConnection.ondatachannel = (event) => {
       const receiveChannel = event.channel;
@@ -49,7 +69,18 @@ function Receiver() {
       remoteConnection.setRemoteDescription(new RTCSessionDescription(offer))
         .then(() => remoteConnection.createAnswer())
         .then(answer => remoteConnection.setLocalDescription(answer))
-        .then(() => socket.emit('answer', { roomId, answer: remoteConnection.localDescription }))
+        .then(() => {
+          // Wait for ICE gathering to complete before sending answer
+          remoteConnection.onicegatheringstatechange = () => {
+            if (remoteConnection.iceGatheringState === 'complete') {
+              socket.emit('answer', { roomId, answer: remoteConnection.localDescription });
+            }
+          };
+          // In case gathering is already complete
+          if (remoteConnection.iceGatheringState === 'complete') {
+            socket.emit('answer', { roomId, answer: remoteConnection.localDescription });
+          }
+        })
         .catch(console.error);
     });
 

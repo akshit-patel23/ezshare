@@ -64,11 +64,21 @@ function Sender() {
   const handleClick=()=>{
     fileinputRef.current.click();
   };
+  const ICE_SERVERS = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      {
+        urls: 'turn:relay1.expressturn.com:3478',
+        username: 'efNOBGLHAGCTEFMV4B',
+        credential: 'aDAWRmsoIkGzOPsX'
+      }
+    ]
+  };
+
   const createConnection = () => {
     const roomId = Math.random().toString(36).slice(2, 8);
-    const localConnection = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
+    const localConnection = new RTCPeerConnection(ICE_SERVERS);
 
     const sendChannel = localConnection.createDataChannel('sendDataChannel', { ordered: true, maxRetransmits: 0 });
     setSendChannel(sendChannel);
@@ -81,8 +91,16 @@ function Sender() {
 
     sendChannel.onclose = () => console.log('Data channel closed');
 
-    // Wait for full ICE gathering before registering — ensures candidates are in the offer
+    localConnection.onconnectionstatechange = () => {
+      console.log('[Sender] Connection state:', localConnection.connectionState);
+    };
+    localConnection.oniceconnectionstatechange = () => {
+      console.log('[Sender] ICE state:', localConnection.iceConnectionState);
+    };
+
+    // Wait for full ICE gathering before registering
     localConnection.onicegatheringstatechange = () => {
+      console.log('[Sender] ICE gathering:', localConnection.iceGatheringState);
       if (localConnection.iceGatheringState === 'complete') {
         socket.emit('register', { roomId, offer: localConnection.localDescription });
         const link = `https://ezshare-alpha.vercel.app/receiver?id=${roomId}`;
